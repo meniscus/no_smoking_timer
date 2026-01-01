@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'util.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MultiProvider(
+    providers: [
+      ChangeNotifierProvider(
+        create: (context) => TimerTickState()
+      ),
+    ],
+    child:const MyApp()));
 }
 
 class MyApp extends StatelessWidget {
@@ -109,6 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
+            SmokingStatusWidget(),
           ],
         ),
       ),
@@ -118,5 +128,142 @@ class _MyHomePageState extends State<MyHomePage> {
         child: const Icon(Icons.add),
       ),
     );
+  }
+}
+
+
+class SmokingStatusWidget extends StatefulWidget {
+  const SmokingStatusWidget({super.key});
+  @override
+  State<SmokingStatusWidget> createState() => _SmokingStatusState();
+}
+
+class SmokingSession {
+  DateTime startAt;
+  DateTime? endAt;
+  int cigarettes;
+
+  SmokingSession({
+    required this.startAt,
+    this.endAt,
+    this.cigarettes = 1,
+  });
+
+  SmokingSession copyWith(
+    {DateTime? startAt,DateTime? endAt,int? cigarettes,}
+  ) => SmokingSession(
+    startAt: startAt ?? this.startAt,
+    endAt: endAt ?? this.endAt,
+    cigarettes: cigarettes ?? this.cigarettes
+  );
+
+  bool get isSmoking => endAt == null;
+}
+
+class _SmokingStatusState extends State<SmokingStatusWidget> {
+  SmokingSession? currentSession;
+  SmokingSession? lastSession;
+  bool get isSmoking => currentSession?.isSmoking ?? false;
+
+  void startSmoking() {
+    setState(() {
+      currentSession = SmokingSession(
+        startAt: DateTime.now(),
+        cigarettes: 1,
+      );
+    });
+  }
+
+  void endSmoking() async {
+    final finished = currentSession!.copyWith(
+      endAt: DateTime.now(),
+    );
+
+    // await repository.save(finished);
+
+    setState(() {
+      lastSession = finished;
+      currentSession = null;
+      
+    });
+  }
+
+  void addCigarette() {
+    if (currentSession == null) return;
+    setState(() {
+      currentSession!.cigarettes++;
+    });
+  }
+
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _statusText(),
+        _timerCount(context),
+        // Spacer(),
+        // TextField(),
+        _getToggleButton(),
+      ],
+    );
+  }
+
+  Widget _statusText() {
+    String getStatusText() {
+      if (isSmoking) {
+        return "喫煙中( ´ー｀)y-~~";
+      } else {
+        return "禁煙中( ･`ω･´)ｷﾘｯ";
+      }
+    }
+    return Text(getStatusText());
+  }
+
+  Widget _timerCount(BuildContext context) {
+    TimerTickState state = context.watch<TimerTickState>();
+    String getElapsedTime() {
+      if (isSmoking) {
+        return "ごゆっくり";
+      } else {
+        if (lastSession == null) {
+          // 初期状態
+          return "--:--:--";
+        } else {
+          Duration elapsed = state.currentTime.difference(lastSession!.endAt!);
+          return elapsed.toHMS();
+        }
+      }
+    }
+    return Text(getElapsedTime());
+  }
+
+  Widget _getToggleButton() {
+    return ElevatedButton(
+      onPressed: isSmoking ? endSmoking : startSmoking,
+      child: Text(isSmoking ? "喫煙終了" : "喫煙開始"));
+  }
+}
+
+class TimerTickState extends ChangeNotifier {
+  Timer? _timer;
+  DateTime currentTime = DateTime.now();
+
+  TimerTickState() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), 
+    (_){
+      debugPrint("tick");
+      currentTime = DateTime.now();
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 }
