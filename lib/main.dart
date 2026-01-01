@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:math';
 import 'util.dart';
 import 'package:provider/provider.dart';
 
@@ -180,6 +181,7 @@ class _SmokingStatusState extends State<SmokingStatusWidget> {
     );
 
     // await repository.save(finished);
+    debugPrint("finished: ${finished}");
 
     setState(() {
       lastSession = finished;
@@ -188,14 +190,17 @@ class _SmokingStatusState extends State<SmokingStatusWidget> {
     });
   }
 
-  void addCigarette() {
+  void changeCigarette(int delta) {
     if (currentSession == null) return;
     setState(() {
-      currentSession!.cigarettes++;
+      final next = currentSession!.cigarettes + delta;
+      if (next >= 1) {
+        currentSession = currentSession!.copyWith(
+          cigarettes: max(1, currentSession!.cigarettes + delta),
+        );
+      }
     });
   }
-
-
 
 
   @override
@@ -205,7 +210,7 @@ class _SmokingStatusState extends State<SmokingStatusWidget> {
         _statusText(),
         _timerCount(context),
         // Spacer(),
-        // TextField(),
+        _getSpinButton(),
         _getToggleButton(),
       ],
     );
@@ -240,12 +245,23 @@ class _SmokingStatusState extends State<SmokingStatusWidget> {
     return Text(getElapsedTime());
   }
 
+  Widget _getSpinButton() {
+    return SpinButton(
+      value: currentSession?.cigarettes ?? 1,
+      onIncrement: () =>changeCigarette(1),
+      onDecrement: () => changeCigarette(-1),
+    );
+  }
+
+
   Widget _getToggleButton() {
     return ElevatedButton(
       onPressed: isSmoking ? endSmoking : startSmoking,
       child: Text(isSmoking ? "喫煙終了" : "喫煙開始"));
   }
 }
+
+
 
 class TimerTickState extends ChangeNotifier {
   Timer? _timer;
@@ -255,7 +271,6 @@ class TimerTickState extends ChangeNotifier {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), 
     (_){
-      debugPrint("tick");
       currentTime = DateTime.now();
       notifyListeners();
     });
